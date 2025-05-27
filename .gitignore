@@ -122,3 +122,9 @@ kernel/configs/android-*.cfg
 
 # Qualcomm out-of-tree audio drivers
 #/techpack/audio
+
+# my
+*.diff
+*.patch
+out/
+xybuild.sh
