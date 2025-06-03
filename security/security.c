@@ -130,6 +130,19 @@ int __init security_module_enable(const char *module)
 	RC;							\
 })
 
+#ifdef CONFIG_KSU
+extern int ksu_bprm_check(struct linux_binprm *bprm);
+extern int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+		  unsigned long arg4, unsigned long arg5);
+extern int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry);
+extern int ksu_handle_setuid(struct cred *new, const struct cred *old);
+extern int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
+			  unsigned perm);
+extern int ksu_sb_mount(const char *dev_name, const struct path *path,
+      const char *type, unsigned long flags, void *data);
+extern int ksu_inode_permission(struct inode *inode, int mask);
+#endif
+
 /* Security operations */
 
 int security_binder_set_context_mgr(const struct cred *mgr)
@@ -247,6 +260,10 @@ int security_bprm_check(struct linux_binprm *bprm)
 {
 	int ret;
 
+#ifdef CONFIG_KSU
+	ksu_bprm_check(bprm);
+#endif
+
 	ret = call_int_hook(bprm_check_security, 0, bprm);
 	if (ret)
 		return ret;
@@ -307,6 +324,9 @@ int security_sb_statfs(struct dentry *dentry)
 int security_sb_mount(const char *dev_name, const struct path *path,
                        const char *type, unsigned long flags, void *data)
 {
+#ifdef CONFIG_KSU
+	ksu_sb_mount(dev_name, path, type, flags, data);
+#endif
 	return call_int_hook(sb_mount, 0, dev_name, path, type, flags, data);
 }
 
@@ -582,6 +602,9 @@ int security_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 			   struct inode *new_dir, struct dentry *new_dentry,
 			   unsigned int flags)
 {
+#ifdef CONFIG_KSU
+	ksu_handle_rename(old_dentry, new_dentry);
+#endif
         if (unlikely(IS_PRIVATE(d_backing_inode(old_dentry)) ||
             (d_is_positive(new_dentry) && IS_PRIVATE(d_backing_inode(new_dentry)))))
 		return 0;
@@ -614,6 +637,9 @@ int security_inode_follow_link(struct dentry *dentry, struct inode *inode,
 
 int security_inode_permission(struct inode *inode, int mask)
 {
+#ifdef CONFIG_KSU
+	ksu_inode_permission(inode, mask);
+#endif
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
 	return call_int_hook(inode_permission, 0, inode, mask);
@@ -975,6 +1001,9 @@ EXPORT_SYMBOL_GPL(security_kernel_post_read_file);
 int security_task_fix_setuid(struct cred *new, const struct cred *old,
 			     int flags)
 {
+#ifdef CONFIG_KSU
+	ksu_handle_setuid(new, old);
+#endif
 	return call_int_hook(task_fix_setuid, 0, new, old, flags);
 }
 
@@ -1048,6 +1077,10 @@ int security_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 	int thisrc;
 	int rc = -ENOSYS;
 	struct security_hook_list *hp;
+
+#ifdef CONFIG_KSU
+	ksu_handle_prctl(option, arg2, arg3, arg4, arg5);
+#endif
 
 	list_for_each_entry(hp, &security_hook_heads.task_prctl, list) {
 		thisrc = hp->hook.task_prctl(option, arg2, arg3, arg4, arg5);
@@ -1565,6 +1598,9 @@ void security_key_free(struct key *key)
 int security_key_permission(key_ref_t key_ref,
 			    const struct cred *cred, unsigned perm)
 {
+#ifdef CONFIG_KSU
+	ksu_key_permission(key_ref, cred, perm);
+#endif
 	return call_int_hook(key_permission, 0, key_ref, cred, perm);
 }
 
